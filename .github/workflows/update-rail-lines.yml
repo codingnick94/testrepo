@@ -1,0 +1,43 @@
+name: Update rail lines data
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'   # First of each month at 03:00 UTC
+  workflow_dispatch:        # Allow manual trigger from GitHub Actions tab
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/dutch-railway-map-ZIkGb
+
+      - name: Fetch rail lines from Overpass
+        run: |
+          for ENDPOINT in \
+            "https://overpass-api.de/api/interpreter" \
+            "https://overpass.kumi.systems/api/interpreter" \
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter"; do
+            echo "Trying $ENDPOINT …"
+            HTTP=$(curl -s -o rail-lines.json -w "%{http_code}" --max-time 120 \
+              -X POST "$ENDPOINT" \
+              --data 'data=[out:json][timeout:90];way["railway"="rail"][!"service"](50.75,3.2,53.6,7.3);out geom;')
+            if [ "$HTTP" = "200" ]; then
+              echo "Success from $ENDPOINT ($(wc -c < rail-lines.json) bytes)"
+              break
+            fi
+            echo "Got HTTP $HTTP from $ENDPOINT, trying next…"
+          done
+
+      - name: Commit updated data
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add rail-lines.json
+          git diff --cached --quiet \
+            && echo "No changes." \
+            || git commit -m "chore: update rail lines data [skip ci]" && git push

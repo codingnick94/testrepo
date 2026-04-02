@@ -2,11 +2,11 @@
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-// Bbox query is far faster than area lookup and avoids Overpass timeouts
-// Bounding box for the Netherlands: south,west,north,east
+// Fallback Overpass query (only used if rail-lines.json is not yet available).
+// [!"service"] excludes yards, sidings and crossovers — smaller payload.
 const RAIL_QUERY =
-  '[out:json][timeout:60];' +
-  'way["railway"="rail"](50.75,3.2,53.6,7.3);' +
+  '[out:json][timeout:90];' +
+  'way["railway"="rail"][!"service"](50.75,3.2,53.6,7.3);' +
   'out geom;';
 
 // Overpass mirror fallback list
@@ -143,12 +143,25 @@ function drawRailLines(elements) {
 }
 
 async function loadRailLines() {
+  // 1. Try localStorage cache (populated on a previous visit)
   const cached = getCached();
   if (cached) {
     drawRailLines(cached);
     return;
   }
 
+  // 2. Try the static file committed by the GitHub Actions workflow
+  try {
+    const res = await fetch('rail-lines.json');
+    if (res.ok) {
+      const data = await res.json();
+      setCache(data.elements);
+      drawRailLines(data.elements);
+      return;
+    }
+  } catch { /* file not yet generated — fall through */ }
+
+  // 3. Last resort: live Overpass query (slow, rate-limited)
   const body = 'data=' + encodeURIComponent(RAIL_QUERY);
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
