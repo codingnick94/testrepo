@@ -1,11 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hello Nick-world</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nederlandse Spoorkaart</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>hello Nick-world</h1>
+  <header class="site-header">
+    <h1 class="site-title">🚂 Nederlandse Spoorkaart</h1>
+    <div class="legend">
+      <span class="legend-title">Stationstype</span>
+      <ul class="legend-list">
+        <li><span class="legend-dot mega"></span> Megastation</li>
+        <li><span class="legend-dot knooppunt"></span> Knooppunt IC-station</li>
+        <li><span class="legend-dot intercity"></span> Intercitystation</li>
+        <li><span class="legend-dot overig"></span> Overig station</li>
+        <li><span class="legend-line"></span> Spoorlijn</li>
+      </ul>
+    </div>
+  </header>
+
+  <div id="loading" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">Kaart laden…</p>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
