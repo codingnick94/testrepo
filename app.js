@@ -57,13 +57,16 @@ function parseCSV(text) {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
 
-  const headers = splitCSVLine(lines[0]);
+  // Auto-detect delimiter: semicolon (common in Dutch data) or comma
+  const delimiter = lines[0].includes(';') ? ';' : ',';
+
+  const headers = splitCSVLine(lines[0], delimiter);
   const rows = [];
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    const values = splitCSVLine(line);
+    const values = splitCSVLine(line, delimiter);
     const obj = {};
     headers.forEach((h, idx) => {
       obj[h.trim()] = (values[idx] ?? '').trim();
@@ -74,7 +77,7 @@ function parseCSV(text) {
   return rows;
 }
 
-function splitCSVLine(line) {
+function splitCSVLine(line, delimiter = ',') {
   const fields = [];
   let current = '';
   let inQuotes = false;
@@ -88,7 +91,7 @@ function splitCSVLine(line) {
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (ch === ',' && !inQuotes) {
+    } else if (ch === delimiter && !inQuotes) {
       fields.push(current);
       current = '';
     } else {
