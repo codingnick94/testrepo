@@ -4,15 +4,15 @@
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
-// Fetches NS railway stations via OSM (nodes tagged railway=station with ref:NS)
-const STATIONS_QUERY =
-  '[out:json];area["name"="Nederland"]["admin_level"="2"];' +
-  'node["railway"="station"]["ref:NS"](area);out tags;';
-
-// Fetches all rail ways with geometry
-const RAIL_QUERY =
-  '[out:json];area["name"="Nederland"]["admin_level"="2"];' +
-  'way["railway"="rail"](area);out geom;';
+// Single combined query: NS stations (nodes) + rail lines (ways)
+const COMBINED_QUERY =
+  '[out:json];' +
+  'area["name"="Nederland"]["admin_level"="2"]->.nl;' +
+  '(' +
+    'node["railway"="station"]["ref:NS"](area.nl);' +
+    'way["railway"="rail"](area.nl);' +
+  ');' +
+  'out geom tags;';
 
 // Station type → { color, radius }
 const STATION_STYLE = {
@@ -101,7 +101,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 // ── Loading state ─────────────────────────────────────────────────────────────
 
 const loadingEl = document.getElementById('loading');
-let pendingLoads = 2; // stations + rail lines
+let pendingLoads = 1; // single combined Overpass request
 
 function loadDone() {
   pendingLoads -= 1;
@@ -120,14 +120,26 @@ function overpassFetch(query) {
   });
 }
 
-// ── Station markers ───────────────────────────────────────────────────────────
+// ── Data loading (single Overpass request) ────────────────────────────────────
 
-async function loadStations() {
+async function loadMapData() {
   try {
-    const res = await overpassFetch(STATIONS_QUERY);
+    const res = await overpassFetch(COMBINED_QUERY);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
+    // Draw rail lines first so station markers render on top
+    for (const el of data.elements) {
+      if (el.type !== 'way' || !el.geometry) continue;
+      L.polyline(el.geometry.map(pt => [pt.lat, pt.lon]), {
+        color: '#3a6abf',
+        weight: 1.8,
+        opacity: 0.75,
+        interactive: false,
+      }).addTo(map);
+    }
+
+    // Then draw station markers
     for (const el of data.elements) {
       if (el.type !== 'node') continue;
       const tags = el.tags || {};
@@ -147,7 +159,7 @@ async function loadStations() {
         .addTo(map);
     }
   } catch (err) {
-    console.error('Stations load failed:', err);
+    console.error('Map data load failed:', err);
   } finally {
     loadDone();
   }
@@ -182,33 +194,6 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Railway lines ─────────────────────────────────────────────────────────────
-
-async function loadRailLines() {
-  try {
-    const res = await overpassFetch(RAIL_QUERY);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    for (const element of data.elements) {
-      if (element.type !== 'way' || !element.geometry) continue;
-      const latlngs = element.geometry.map(pt => [pt.lat, pt.lon]);
-      L.polyline(latlngs, {
-        color: '#3a6abf',
-        weight: 1.8,
-        opacity: 0.75,
-        interactive: false,
-      }).addTo(map);
-    }
-  } catch (err) {
-    console.error('Rail lines load failed:', err);
-  } finally {
-    loadDone();
-  }
-}
-
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
-// Load rail lines first so they render behind station markers
-loadRailLines();
-loadStations();
+loadMapData();
