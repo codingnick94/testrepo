@@ -105,9 +105,50 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Railway lines (from Overpass, bbox query) ─────────────────────────────────
+// ── Railway lines (Overpass with localStorage cache) ──────────────────────────
+
+const CACHE_KEY = 'nl_rail_lines';
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getCached() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function setCache(data) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  } catch {
+    // localStorage full or unavailable — silently skip
+  }
+}
+
+function drawRailLines(elements) {
+  for (const el of elements) {
+    if (el.type !== 'way' || !el.geometry) continue;
+    L.polyline(el.geometry.map(pt => [pt.lat, pt.lon]), {
+      color: '#3a6abf',
+      weight: 1.8,
+      opacity: 0.75,
+      interactive: false,
+    }).addTo(map);
+  }
+}
 
 async function loadRailLines() {
+  const cached = getCached();
+  if (cached) {
+    drawRailLines(cached);
+    return;
+  }
+
   const body = 'data=' + encodeURIComponent(RAIL_QUERY);
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
@@ -123,16 +164,9 @@ async function loadRailLines() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
-      for (const el of data.elements) {
-        if (el.type !== 'way' || !el.geometry) continue;
-        L.polyline(el.geometry.map(pt => [pt.lat, pt.lon]), {
-          color: '#3a6abf',
-          weight: 1.8,
-          opacity: 0.75,
-          interactive: false,
-        }).addTo(map);
-      }
-      return; // success
+      setCache(data.elements);
+      drawRailLines(data.elements);
+      return;
     } catch (err) {
       console.warn(`Overpass ${endpoint} error:`, err.message);
     }
