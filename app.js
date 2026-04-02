@@ -2,23 +2,86 @@
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const STATIONS_CSV_URL =
-  'https://opendata.rijdendetreinen.nl/public/stations/stations-2024-09-nl.csv';
-
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
-const OVERPASS_QUERY =
+
+// Fetches NS railway stations via OSM (nodes tagged railway=station with ref:NS)
+const STATIONS_QUERY =
+  '[out:json];area["name"="Nederland"]["admin_level"="2"];' +
+  'node["railway"="station"]["ref:NS"](area);out tags;';
+
+// Fetches all rail ways with geometry
+const RAIL_QUERY =
   '[out:json];area["name"="Nederland"]["admin_level"="2"];' +
   'way["railway"="rail"](area);out geom;';
 
 // Station type → { color, radius }
 const STATION_STYLE = {
-  megastation:                 { color: '#FFC917', radius: 10 },
-  knooppuntIntercitystation:   { color: '#FF8C00', radius:  8 },
-  intercitystation:            { color: '#4a9eff', radius:  7 },
-  sneltreinstation:            { color: '#8a8fa8', radius:  5 },
-  stoptreinstation:            { color: '#8a8fa8', radius:  4 },
-  facultatiefStation:          { color: '#8a8fa8', radius:  4 },
-  default:                     { color: '#8a8fa8', radius:  4 },
+  megastation:               { color: '#FFC917', radius: 10 },
+  knooppuntIntercitystation: { color: '#FF8C00', radius:  8 },
+  intercitystation:          { color: '#4a9eff', radius:  7 },
+  default:                   { color: '#8a8fa8', radius:  4 },
+};
+
+// NS station code → type (based on official NS station classification)
+const NS_TYPE = {
+  // Megastations
+  ASD:  'megastation',  // Amsterdam Centraal
+  RTD:  'megastation',  // Rotterdam Centraal
+  UT:   'megastation',  // Utrecht Centraal
+  GVC:  'megastation',  // Den Haag Centraal
+  SHL:  'megastation',  // Amsterdam Airport Schiphol
+
+  // Knooppunt intercitystations
+  ASDM: 'knooppuntIntercitystation',  // Amsterdam Amstel
+  ASS:  'knooppuntIntercitystation',  // Amsterdam Sloterdijk
+  ASA:  'knooppuntIntercitystation',  // Amsterdam Zuid
+  AMF:  'knooppuntIntercitystation',  // Amersfoort
+  AH:   'knooppuntIntercitystation',  // Arnhem Centraal
+  BD:   'knooppuntIntercitystation',  // Breda
+  GVS:  'knooppuntIntercitystation',  // Den Haag HS
+  DV:   'knooppuntIntercitystation',  // Deventer
+  DT:   'knooppuntIntercitystation',  // Dordrecht
+  EHV:  'knooppuntIntercitystation',  // Eindhoven
+  ES:   'knooppuntIntercitystation',  // Enschede
+  GN:   'knooppuntIntercitystation',  // Groningen
+  HLM:  'knooppuntIntercitystation',  // Haarlem
+  LDN:  'knooppuntIntercitystation',  // Leiden Centraal
+  MT:   'knooppuntIntercitystation',  // Maastricht
+  NM:   'knooppuntIntercitystation',  // Nijmegen
+  HT:   'knooppuntIntercitystation',  // 's-Hertogenbosch
+  TB:   'knooppuntIntercitystation',  // Tilburg
+  VL:   'knooppuntIntercitystation',  // Venlo
+  ZL:   'knooppuntIntercitystation',  // Zwolle
+
+  // Intercitystations
+  ALM:  'intercitystation',  // Almere Centrum
+  ALMB: 'intercitystation',  // Almere Buiten
+  APD:  'intercitystation',  // Apeldoorn
+  ASB:  'intercitystation',  // Amsterdam Bijlmer ArenA
+  ASHD: 'intercitystation',  // Amstelveen Stadshart... no, Amsterdam Holendrecht
+  BSMZ: 'intercitystation',  // Bussum Zuid
+  DDZD: 'intercitystation',  // Dordrecht Zuid
+  EM:   'intercitystation',  // Emmen
+  GD:   'intercitystation',  // Gouda
+  GDG:  'intercitystation',  // Gouda Goverwelle
+  GVMW: 'intercitystation',  // Den Haag Moerwijk
+  HFD:  'intercitystation',  // Hoofddorp
+  HGL:  'intercitystation',  // Helmond
+  HR:   'intercitystation',  // Heerlen
+  HRN:  'intercitystation',  // Hoorn
+  LLS:  'intercitystation',  // Lelystad Centrum
+  LEDN: 'intercitystation',  // Leiden Lammenschans... actually wrong, skip
+  MDB:  'intercitystation',  // Middelburg
+  RTTA: 'intercitystation',  // Rotterdam Alexander
+  RTB:  'intercitystation',  // Rotterdam Blaak
+  SC:   'intercitystation',  // Schiedam Centrum
+  SHLZ: 'intercitystation',  // Schiphol Zuid?
+  SNK:  'intercitystation',  // Sneek
+  UTLST:'intercitystation',  // Utrecht Leidsche Rijn
+  VDN:  'intercitystation',  // Veenendaal-De Klomp
+  WD:   'intercitystation',  // Woerden
+  ZD:   'intercitystation',  // Zoetermeer
+  ZDM:  'intercitystation',  // Zoetermeer oost? no
 };
 
 // ── Map initialisation ───────────────────────────────────────────────────────
@@ -47,124 +110,68 @@ function loadDone() {
   }
 }
 
-// ── CSV parser ────────────────────────────────────────────────────────────────
+// ── Overpass fetch helper ─────────────────────────────────────────────────────
 
-/**
- * Parse a CSV string into an array of objects using the first row as headers.
- * Handles double-quoted fields (including those containing commas).
- */
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-
-  // Auto-detect delimiter: semicolon (common in Dutch data) or comma
-  const delimiter = lines[0].includes(';') ? ';' : ',';
-
-  const headers = splitCSVLine(lines[0], delimiter);
-  const rows = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    const values = splitCSVLine(line, delimiter);
-    const obj = {};
-    headers.forEach((h, idx) => {
-      obj[h.trim()] = (values[idx] ?? '').trim();
-    });
-    rows.push(obj);
-  }
-
-  return rows;
-}
-
-function splitCSVLine(line, delimiter = ',') {
-  const fields = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (ch === delimiter && !inQuotes) {
-      fields.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-  fields.push(current);
-  return fields;
+function overpassFetch(query) {
+  return fetch(OVERPASS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'data=' + encodeURIComponent(query),
+  });
 }
 
 // ── Station markers ───────────────────────────────────────────────────────────
 
 async function loadStations() {
   try {
-    const res = await fetch(STATIONS_CSV_URL);
+    const res = await overpassFetch(STATIONS_QUERY);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    const rows = parseCSV(text);
-    const nlRows = rows.filter(r => r['country'] === 'NL');
-    console.log('[stations] total rows:', rows.length, '| NL rows:', nlRows.length);
-    if (rows.length > 0) console.log('[stations] columns:', Object.keys(rows[0]));
+    const data = await res.json();
 
-    nlRows
-      .forEach(station => {
-        const lat = parseFloat(station['geo_lat']);
-        const lng = parseFloat(station['geo_lng']);
-        if (isNaN(lat) || isNaN(lng)) return;
+    for (const el of data.elements) {
+      if (el.type !== 'node') continue;
+      const tags = el.tags || {};
+      const code = (tags['ref:NS'] || '').trim().toUpperCase();
+      const type = NS_TYPE[code] || 'default';
+      const style = STATION_STYLE[type] || STATION_STYLE.default;
+      const name = tags['name'] || code || '—';
 
-        const type = station['type'] || 'default';
-        const style = STATION_STYLE[type] || STATION_STYLE.default;
-
-        const marker = L.circleMarker([lat, lng], {
-          radius: style.radius,
-          fillColor: style.color,
-          color: 'rgba(0,0,0,0.45)',
-          weight: 1.5,
-          fillOpacity: 0.92,
-        }).addTo(map);
-
-        marker.bindPopup(buildPopup(station, type));
-      });
+      L.circleMarker([el.lat, el.lon], {
+        radius: style.radius,
+        fillColor: style.color,
+        color: 'rgba(0,0,0,0.45)',
+        weight: 1.5,
+        fillOpacity: 0.92,
+      })
+        .bindPopup(buildPopup(name, type, code))
+        .addTo(map);
+    }
   } catch (err) {
-    console.error('[stations] load failed:', err);
+    console.error('Stations load failed:', err);
   } finally {
     loadDone();
   }
 }
 
-function buildPopup(station, type) {
-  const name = escapeHtml(station['name_long'] || station['name'] || '—');
-  const code = escapeHtml(station['code'] || '—');
-  const typeLabel = escapeHtml(formatType(type));
-
+function buildPopup(name, type, code) {
   return `
-    <div class="popup-name">${name}</div>
+    <div class="popup-name">${escapeHtml(name)}</div>
     <div class="popup-row">
       <span class="popup-label">Type</span>
-      <span class="popup-value">${typeLabel}</span>
+      <span class="popup-value">${escapeHtml(formatType(type))}</span>
     </div>
-    <div><span class="popup-code">${code}</span></div>
+    <div><span class="popup-code">${escapeHtml(code)}</span></div>
   `;
 }
 
 function formatType(type) {
-  const map = {
+  const labels = {
     megastation:               'Megastation',
     knooppuntIntercitystation: 'Knooppunt IC-station',
     intercitystation:          'Intercitystation',
-    sneltreinstation:          'Sneltreinstation',
-    stoptreinstation:          'Stoptreinstation',
-    facultatiefStation:        'Facultatief station',
+    default:                   'Station',
   };
-  return map[type] || type;
+  return labels[type] || type;
 }
 
 function escapeHtml(str) {
@@ -179,15 +186,9 @@ function escapeHtml(str) {
 
 async function loadRailLines() {
   try {
-    const res = await fetch(OVERPASS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'data=' + encodeURIComponent(OVERPASS_QUERY),
-    });
+    const res = await overpassFetch(RAIL_QUERY);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-
-    const railLayer = L.layerGroup().addTo(map);
 
     for (const element of data.elements) {
       if (element.type !== 'way' || !element.geometry) continue;
@@ -197,11 +198,8 @@ async function loadRailLines() {
         weight: 1.8,
         opacity: 0.75,
         interactive: false,
-      }).addTo(railLayer);
+      }).addTo(map);
     }
-
-    // Push rail layer below markers by bringing markers to front
-    railLayer.bringToBack();
   } catch (err) {
     console.error('Rail lines load failed:', err);
   } finally {
@@ -211,5 +209,6 @@ async function loadRailLines() {
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
-loadStations();
+// Load rail lines first so they render behind station markers
 loadRailLines();
+loadStations();
