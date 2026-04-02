@@ -2,7 +2,12 @@
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+// Overpass endpoints tried in order; fall back if one is rate-limited
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+];
 
 const STATIONS_QUERY =
   '[out:json];area["name"="Nederland"]["admin_level"="2"];' +
@@ -110,12 +115,25 @@ function loadDone() {
 
 // ── Overpass fetch helper ─────────────────────────────────────────────────────
 
-function overpassFetch(query) {
-  return fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'data=' + encodeURIComponent(query),
-  });
+async function overpassFetch(query) {
+  const body = 'data=' + encodeURIComponent(query);
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+      if (res.status === 429 || res.status === 504) {
+        console.warn(`Overpass ${endpoint} returned ${res.status}, trying next…`);
+        continue;
+      }
+      return res;
+    } catch (err) {
+      console.warn(`Overpass ${endpoint} failed:`, err.message);
+    }
+  }
+  throw new Error('All Overpass endpoints failed or rate-limited');
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
