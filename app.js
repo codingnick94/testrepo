@@ -110,9 +110,11 @@ async function loadStations() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     const rows = parseCSV(text);
+    const nlRows = rows.filter(r => r['country'] === 'NL');
+    console.log('[stations] total rows:', rows.length, '| NL rows:', nlRows.length);
+    if (rows.length > 0) console.log('[stations] columns:', Object.keys(rows[0]));
 
-    rows
-      .filter(r => r['country'] === 'NL')
+    nlRows
       .forEach(station => {
         const lat = parseFloat(station['geo_lat']);
         const lng = parseFloat(station['geo_lng']);
@@ -132,7 +134,7 @@ async function loadStations() {
         marker.bindPopup(buildPopup(station, type));
       });
   } catch (err) {
-    console.error('Stations load failed:', err);
+    console.error('[stations] load failed:', err);
   } finally {
     loadDone();
   }
