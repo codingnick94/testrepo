@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<title>TIBS-SB — Verkeersleiding</title>
+<meta name="viewport" content="width=1440" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-ui: 'Inter Tight', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  }
+  html[data-theme="dark"] {
+    --bg-0: #0b0e12;
+    --bg-1: #11151b;
+    --bg-2: #171c24;
+    --bg-3: #1f2530;
+    --bg-hover: #232a36;
+    --border: #252c38;
+    --border-strong: #323a48;
+    --text-1: #e6ebf2;
+    --text-2: #a4adbc;
+    --text-3: #6b7485;
+    --accent: #4b8bf5;
+    --accent-soft: #1d2b47;
+    --ok: #3cc98a;
+    --warn: #f5b544;
+    --alarm: #ef5564;
+    --alarm-soft: #3a1a20;
+    --signal-red: #ef5564;
+    --signal-yellow: #f5b544;
+    --signal-green: #3cc98a;
+    --track-free: #3a4458;
+    --track-occupied: #4b8bf5;
+    --track-reserved: #9167e6;
+    --track-fault: #ef5564;
+    --map-bg: #0d1117;
+    --map-land: #121821;
+    --map-water: #0e2334;
+    --grid: #1a2130;
+  }
+  html[data-theme="light"] {
+    --bg-0: #f4f6f9;
+    --bg-1: #ffffff;
+    --bg-2: #f7f9fc;
+    --bg-3: #eef2f7;
+    --bg-hover: #e7edf4;
+    --border: #e1e6ee;
+    --border-strong: #c9d2de;
+    --text-1: #111820;
+    --text-2: #4d5766;
+    --text-3: #818b9c;
+    --accent: #2563d9;
+    --accent-soft: #dce7fa;
+    --ok: #1d9b64;
+    --warn: #c78210;
+    --alarm: #d53746;
+    --alarm-soft: #fbe0e3;
+    --signal-red: #d53746;
+    --signal-yellow: #c78210;
+    --signal-green: #1d9b64;
+    --track-free: #b7c0cd;
+    --track-occupied: #2563d9;
+    --track-reserved: #7747d3;
+    --track-fault: #d53746;
+    --map-bg: #eaf0f6;
+    --map-land: #f2f5f9;
+    --map-water: #d6e4ef;
+    --grid: #dde3eb;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: var(--font-ui);
+    background: var(--bg-0);
+    color: var(--text-1);
+    font-size: 13px;
+    letter-spacing: -0.005em;
+    overflow: hidden;
+  }
+  .mono { font-family: var(--font-mono); font-feature-settings: "tnum" on; }
+  #root { height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// Tweaks defaults (kept for host persistence even if panel is minimal)
+window.__TWEAKS = /*EDITMODE-BEGIN*/{
+  "defaultTheme": "dark",
+  "alarmsEnabled": true,
+  "trainSpeed": 1
+}/*EDITMODE-END*/;
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="src/data.jsx"></script>
+<script type="text/babel" src="src/map.jsx"></script>
+<script type="text/babel" src="src/panels.jsx"></script>
+<script type="text/babel" src="src/app.jsx"></script>
+</body>
+</html>
